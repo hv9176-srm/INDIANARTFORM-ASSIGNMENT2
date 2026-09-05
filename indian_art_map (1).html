@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Map of Indian Art</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+  :root{
+    --ink:#241c15;
+    --paper:#efe6d3;
+    --clay:#a8461f;
+    --clay-deep:#7a3016;
+    --line:#c9b998;
+    --card:#f8f2e3;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Georgia','Iowan Old Style',serif;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+  }
+  header{
+    padding:22px 28px 16px;
+    border-bottom:2px solid var(--ink);
+  }
+  h1{
+    margin:0 0 6px;
+    font-size:clamp(1.6rem,3.4vw,2.3rem);
+    letter-spacing:-0.4px;
+  }
+  header p{
+    margin:0;
+    color:#4a3f30;
+    font-size:.95rem;
+    max-width:70ch;
+  }
+  .layout{
+    flex:1;
+    display:flex;
+    min-height:0;
+  }
+  #map{
+    flex:1;
+    background:#ded2b3;
+  }
+  .leaflet-popup-content-wrapper{
+    background:var(--card);
+    border-radius:2px;
+    border-top:4px solid var(--clay);
+  }
+  .leaflet-popup-tip{background:var(--card);}
+  .popup-glyph{font-size:1.4rem;}
+  .popup h3{margin:6px 0 2px;font-size:1.05rem;}
+  .popup .style{
+    font-size:.78rem;
+    font-style:italic;
+    color:var(--clay-deep);
+    margin:0 0 8px;
+  }
+  .popup p{margin:0 0 6px;font-size:.85rem;line-height:1.45;color:#382e22;}
+  .popup .see-more{
+    font-size:.78rem;
+    color:var(--clay);
+    cursor:pointer;
+    text-decoration:underline;
+  }
+  .sidebar{
+    width:300px;
+    border-left:2px solid var(--ink);
+    overflow-y:auto;
+    background:var(--card);
+    flex-shrink:0;
+  }
+  .sidebar h2{
+    font-size:.85rem;
+    text-transform:none;
+    letter-spacing:.3px;
+    padding:16px 18px 8px;
+    margin:0;
+    color:#4a3f30;
+  }
+  .loc-item{
+    padding:12px 18px;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+    transition:background .15s ease;
+  }
+  .loc-item:hover, .loc-item.active{background:rgba(168,70,31,0.08);}
+  .loc-item .name{font-weight:600;font-size:.95rem;margin-bottom:2px;}
+  .loc-item .region{font-size:.78rem;color:var(--clay-deep);font-style:italic;}
+  /* detail overlay */
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(36,28,21,0.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    z-index:999;
+  }
+  .overlay.show{display:flex;}
+  .detail{
+    background:var(--card);
+    max-width:560px;
+    width:100%;
+    max-height:85vh;
+    overflow-y:auto;
+    padding:32px;
+    border-radius:3px;
+    position:relative;
+    border-top:5px solid var(--clay);
+  }
+  .detail .close{
+    position:absolute;top:14px;right:18px;
+    font-size:1.6rem;cursor:pointer;color:#8a7a5f;line-height:1;
+  }
+  .detail .glyph{font-size:2.4rem;display:block;margin-bottom:8px;}
+  .detail h3{margin:0 0 4px;font-size:1.4rem;}
+  .detail .meta{font-size:.85rem;color:var(--clay-deep);font-style:italic;margin-bottom:14px;}
+  .detail p{line-height:1.6;color:#382e22;margin:0 0 12px;}
+  .detail .label{font-size:.72rem;letter-spacing:.3px;color:#8a7a5f;margin-bottom:3px;}
+  @media (max-width:720px){
+    .sidebar{display:none;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mapping Indian Art</h1>
+  <p>An interactive map of locations significant to Indian art history — click a marker or list item to see images, artists, and historical context for each site.</p>
+</header>
+<div class="layout">
+  <div id="map"></div>
+  <div class="sidebar">
+    <h2>Sites on this map</h2>
+    <div id="list"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="detail" id="detailBox"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const sites = [
+  {
+    glyph: "🦄",
+    name: "Mohenjo-daro",
+    region: "Sindh (Pakistan) — Indus Valley",
+    lat: 27.3294, lng: 68.1381,
+    style: "Indus Valley Civilisation, c. 2600–1900 BCE",
+    desc: "One of the largest urban centres of the Indus Valley Civilisation, home to sophisticated bronze and steatite craft.",
+    artists: "Unknown (pre-literate/undeciphered script society)",
+    artworks: "Dancing Girl bronze figure, Pashupati seal, terracotta figurines",
+    significance: "Reveals the earliest known lost-wax metal casting and seal-carving traditions on the subcontinent, laying groundwork for later Indian sculptural and symbolic vocabulary."
+  },
+  {
+    glyph: "🦁",
+    name: "Sarnath",
+    region: "Uttar Pradesh — Gangetic Plain",
+    lat: 25.3811, lng: 83.0230,
+    style: "Mauryan Art, c. 3rd century BCE",
+    desc: "Site where the Buddha gave his first sermon; later crowned with Ashoka's iconic polished sandstone pillar.",
+    artists: "Mauryan imperial court sculptors (unnamed)",
+    artworks: "Lion Capital of Ashoka, Ashokan pillar edicts",
+    significance: "The Lion Capital became independent India's national emblem, and the site's Mauryan polish technique set the technical standard for centuries of Indian stone carving."
+  },
+  {
+    glyph: "🕉️",
+    name: "Sanchi",
+    region: "Madhya Pradesh — Central India",
+    lat: 23.4835, lng: 77.7378,
+    style: "Early Buddhist Art, c. 1st BCE – 3rd CE",
+    desc: "Home to the Great Stupa, its gateways carved with narrative reliefs from the Buddha's life and jataka tales.",
+    artists: "Guild-based Buddhist artisan communities",
+    artworks: "Carved toranas (gateways), stupa railings",
+    significance: "Represents the 'aniconic' phase of Buddhist art, where symbols stood in for the Buddha's presence rather than his literal image."
+  },
+  {
+    glyph: "🖼️",
+    name: "Ajanta Caves",
+    region: "Maharashtra — Deccan Plateau",
+    lat: 20.5519, lng: 75.7033,
+    style: "Ajanta School painting, c. 2nd BCE – 6th CE",
+    desc: "Rock-cut Buddhist cave complex containing some of the finest surviving ancient murals in the world.",
+    artists: "Buddhist monk-artists and royal patron workshops",
+    artworks: "Padmapani mural, Jataka tale narrative paintings",
+    significance: "Demonstrates advanced tempera painting and shading techniques predating comparable European fresco work by centuries."
+  },
+  {
+    glyph: "🔱",
+    name: "Thanjavur",
+    region: "Tamil Nadu — South India",
+    lat: 10.7870, lng: 79.1378,
+    style: "Chola bronzes, c. 9th–13th century CE",
+    desc: "Capital of the Chola dynasty and centre of an unmatched bronze-casting tradition devoted to Shiva and Vishnu iconography.",
+    artists: "Chola court metalworking guilds",
+    artworks: "Nataraja (Shiva as Cosmic Dancer), Chola temple bronzes",
+    significance: "The Nataraja bronze is regarded globally as a masterpiece uniting technical precision with philosophical symbolism of cosmic rhythm."
+  },
+  {
+    glyph: "🎨",
+    name: "Agra & Fatehpur Sikri",
+    region: "Uttar Pradesh — Mughal heartland",
+    lat: 27.0937, lng: 77.6737,
+    style: "Mughal miniature painting, 16th–18th century",
+    desc: "Centres of Mughal court patronage where Persian-trained and Indian artists produced richly illustrated manuscripts.",
+    artists: "Basawan, Daswanth, and court ateliers under Akbar",
+    artworks: "Akbarnama illustrations, Hamzanama manuscript paintings",
+    significance: "Fused Persian technique with Indian subject matter, defining the visual language of South Asian miniature painting for centuries."
+  },
+  {
+    glyph: "🌸",
+    name: "Kolkata (Calcutta)",
+    region: "West Bengal — Bengal School",
+    lat: 22.5726, lng: 88.3639,
+    style: "Bengal School / Nationalist Art, 19th–20th century",
+    desc: "Birthplace of the Bengal School movement, which revived indigenous techniques as a response to colonial academic painting.",
+    artists: "Abanindranath Tagore, Nandalal Bose",
+    artworks: "Bharat Mata, wash-technique paintings",
+    significance: "Became visually and politically tied to the Swadeshi movement, asserting a distinct Indian artistic identity against colonial rule."
+  }
+];
+
+const map = L.map('map', {scrollWheelZoom:true}).setView([22.5, 79], 5);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 19
+}).addTo(map);
+
+const markers = {};
+const overlay = document.getElementById('overlay');
+const detailBox = document.getElementById('detailBox');
+const list = document.getElementById('list');
+
+function openDetail(site){
+  detailBox.innerHTML = `
+    <span class="close" id="closeBtn">&times;</span>
+    <span class="glyph">${site.glyph}</span>
+    <h3>${site.name}</h3>
+    <div class="meta">${site.region} · ${site.style}</div>
+    <p>${site.desc}</p>
+    <div class="label">ARTISTS / WORKSHOPS</div>
+    <p>${site.artists}</p>
+    <div class="label">KEY ARTWORKS</div>
+    <p>${site.artworks}</p>
+    <div class="label">HISTORICAL SIGNIFICANCE</div>
+    <p>${site.significance}</p>
+  `;
+  overlay.classList.add('show');
+}
+
+sites.forEach((site, i) => {
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="font-size:22px; filter:drop-shadow(0 1px 1px rgba(0,0,0,.4));">${site.glyph}</div>`,
+    iconSize: [26,26],
+    iconAnchor: [13,13]
+  });
+  const m = L.marker([site.lat, site.lng], {icon}).addTo(map);
+  m.bindPopup(`
+    <div class="popup">
+      <span class="popup-glyph">${site.glyph}</span>
+      <h3>${site.name}</h3>
+      <p class="style">${site.style}</p>
+      <p>${site.desc}</p>
+      <span class="see-more" data-idx="${i}">See full details →</span>
+    </div>
+  `);
+  markers[i] = m;
+
+  const item = document.createElement('div');
+  item.className = 'loc-item';
+  item.dataset.idx = i;
+  item.innerHTML = `<div class="name">${site.glyph} ${site.name}</div><div class="region">${site.region}</div>`;
+  item.addEventListener('click', () => {
+    map.flyTo([site.lat, site.lng], 7, {duration: 0.8});
+    m.openPopup();
+    document.querySelectorAll('.loc-item').forEach(el => el.classList.remove('active'));
+    item.classList.add('active');
+  });
+  list.appendChild(item);
+});
+
+map.on('popupopen', (e) => {
+  const btn = e.popup._contentNode.querySelector('.see-more');
+  if(btn){
+    btn.addEventListener('click', () => {
+      openDetail(sites[btn.dataset.idx]);
+    });
+  }
+});
+
+overlay.addEventListener('click', (e) => {
+  if(e.target === overlay || e.target.id === 'closeBtn'){
+    overlay.classList.remove('show');
+  }
+});
+</script>
+</body>
+</html>
